@@ -63,3 +63,8 @@ body, html {
     display: inline-block; /* Allow natural width behavior for measurement */
     transform-origin: center center;
 }
+
+/* Ensure Tweakpane sits above the overlay */
+.tp-dfwv {
+    z-index: 9999 !important;
+}
