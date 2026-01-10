@@ -55,7 +55,7 @@ body, html {
     width: 200px; /* Fixed size for gallery */
     height: 200px;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     justify-content: center;
     align-items: center;
 }
@@ -83,12 +83,15 @@ body, html {
     letter-spacing: 0.2em;
 }
 
-.grid-row {
+.grid-col {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
-    width: 100%; /* Or auto, depending on desired compaction */
+    height: 100%;
+    /* Width will be set by JS in % */
+    width: 0;
+    flex-grow: 0;
 }
 
 .char-block {
@@ -99,12 +102,12 @@ body, html {
     overflow: hidden;
     background-color: #fff;
     color: #000;
-    /* Width/Height will be set by JS in % */
-    width: 0; 
-    height: 100%; /* Fill the row height */
-    flex-grow: 0; /* We control width explicitly */
+    /* In Col-based: Width is 100% of col, Height is set by JS */
+    width: 100%; 
+    height: 0; 
+    flex-grow: 0;
     margin: 0; 
-    border: 1px solid #000; /* Define boundary */
+    border: 1px solid #000;
     will-change: width, height, font-size, font-variation-settings;
 }
 
