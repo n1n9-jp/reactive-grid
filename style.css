@@ -26,7 +26,8 @@ body, html {
     z-index: 1;
     overflow-y: auto;
     display: flex; /* Use flex for centering child with margin: auto */
-    padding: 40px;
+    flex-direction: column; /* Stack title and grid collection vertically */
+    padding: 0;
     box-sizing: border-box;
 }
 
@@ -39,6 +40,8 @@ body, html {
     width: 100%; /* Or auto with max-width */
     margin: auto; /* Centers safely in flex container */
     max-width: 1600px; /* Optional constraint */
+    padding: 40px;
+    box-sizing: border-box;
 }
 
 .grid-instance {
@@ -70,6 +73,7 @@ body, html {
 .page-title {
     width: 100%;
     text-align: center;
+    margin-top: 20px;
     margin-bottom: 40px;
     font-size: 0.8rem;
     color: #888;
