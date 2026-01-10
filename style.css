@@ -24,11 +24,59 @@ body, html {
     width: 100%;
     height: 100%;
     z-index: 1;
-    pointer-events: none;
+    overflow-y: auto;
+    display: flex; /* Use flex for centering child with margin: auto */
+    padding: 40px;
+    box-sizing: border-box;
+}
+
+#grid-collection {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    justify-items: center;
+    align-content: start;
+    gap: 20px;
+    width: 100%; /* Or auto with max-width */
+    margin: auto; /* Centers safely in flex container */
+    max-width: 1600px; /* Optional constraint */
+}
+
+.grid-instance {
     display: flex;
-    flex-direction: column; /* Stack rows vertically */
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.grid-wrapper {
+    width: 200px; /* Fixed size for gallery */
+    height: 200px;
+    display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
+}
+
+.motion-label {
+    margin-top: 15px;
+    font-size: 1.0rem;
+    color: #fff;
+    font-family: 'Roboto Flex', sans-serif;
+    font-weight: 300;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.page-title {
+    width: 100%;
+    text-align: center;
+    margin-bottom: 40px;
+    font-size: 0.8rem;
+    color: #888;
+    font-family: 'Roboto Flex', sans-serif;
+    font-weight: 300;
+    text-transform: lowercase;
+    letter-spacing: 0.2em;
 }
 
 .grid-row {
