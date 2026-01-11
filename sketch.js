@@ -1,19 +1,13 @@
 let grids = [];
 
-// Global Parameters controlled by Tweakpane
+// Tweakpaneで制御されるグローバルパラメータ
 const PARAMS = {
     scheme: 'Viridis',
     speed: 0.05
 };
 
-// Utility function for Gaussian weight calculation
-// Used by Circulation, Pulfunte, and diagonal motions (Scan/Slash)
-const gaussianWeight = (distance, amplitude, falloff, baseline = 1.0) => {
-    return baseline + amplitude * Math.exp(-distance * distance * falloff);
-};
-
-// Configs now only define label and motion type
-// Added 'orientation' property for grid layout (col-major or row-major)
+// グリッド設定 - ラベルとモーションタイプのみを定義
+// 'orientation'プロパティでグリッドレイアウト（列優先 or 行優先）を指定
 const GRID_CONFIGS = [
     { label: 'POLAR', motion: 'Polar' },
     { label: 'TB FLOW', motion: 'TB Flow' },
@@ -27,7 +21,7 @@ const GRID_CONFIGS = [
     { label: 'PULFUNTE', motion: 'Pulfunte' }
 ];
 
-// Motion Calculators - Each function returns { globalRowWeights, globalColWeights, totalGlobalRowWeight, totalGlobalColWeight }
+// モーション計算関数 - 各関数は { globalRowWeights, globalColWeights, totalGlobalRowWeight, totalGlobalColWeight } を返す
 const MotionCalculators = {
     Orthogonal: (t) => {
         const globalRowWeights = [];
@@ -117,7 +111,7 @@ const MotionCalculators = {
         let totalGlobalRowWeight = 1; // Dummy
         let totalGlobalColWeight = 0;
 
-        // Col widths are uniform/breathing
+        // 列幅は均一/呼吸
         for (let c = 0; c < 5; c++) {
             let w = 1.0 + 0.3 * sin(t * 1.5 + c * 0.2);
             globalColWeights.push(w);
@@ -133,7 +127,7 @@ const MotionCalculators = {
         let totalGlobalRowWeight = 0;
         let totalGlobalColWeight = 0;
 
-        // Focus point orbits smoothly
+        // フォーカスポイントが滑らかに軌道を描く
         let radius = 2.5;
         let centerX = 2.0;
         let centerY = 2.0;
@@ -143,7 +137,7 @@ const MotionCalculators = {
         let focusC = centerX + radius * Math.cos(angle);
         let focusR = centerY + radius * Math.sin(angle);
 
-        // Gaussian weights
+        // ガウス重み
         for (let r = 0; r < 5; r++) {
             let dist = r - focusR;
             let w = gaussianWeight(dist, 4.0, 0.5);
@@ -186,7 +180,7 @@ const MotionCalculators = {
         let focusR = focusR1 + (focusR2 - focusR1) * ease;
         let focusC = focusC1 + (focusC2 - focusC1) * ease;
 
-        // 2D radial weights
+        // 2D放射状重み
         for (let r = 0; r < 5; r++) {
             for (let c = 0; c < 5; c++) {
                 let dr = r - focusR;
@@ -236,87 +230,42 @@ const MotionCalculators = {
     }
 };
 
-// Helper function for diagonal motions (Scan and Slash)
-// direction: 1 for TL→BR (Scan), -1 for TR→BL (Slash)
-const calculateDiagonalMotion = (t, direction) => {
-    const globalRowWeights = [];
-    const globalColWeights = [];
-    let totalGlobalRowWeight = 0;
-    let totalGlobalColWeight = 0;
-
-    let cycleLen = 6;
-    let phase = (t * 1.5) % cycleLen - 0.5;
-
-    for (let r = 0; r < 5; r++) {
-        let dist = r - phase;
-        let w = gaussianWeight(dist, 4.0, 1.5);
-        globalRowWeights.push(w);
-        totalGlobalRowWeight += w;
-    }
-
-    for (let c = 0; c < 5; c++) {
-        // direction = 1: same phase (TL→BR), direction = -1: inverted phase (TR→BL)
-        let colPhase = direction === 1 ? phase : (cycleLen - 0.5 - phase);
-        let dist = c - colPhase;
-        let w = gaussianWeight(dist, 4.0, 1.5);
-        globalColWeights.push(w);
-        totalGlobalColWeight += w;
-    }
-
-    return { globalRowWeights, globalColWeights, totalGlobalRowWeight, totalGlobalColWeight };
-};
-
-// Update Scan and Slash to use the shared helper
+// ScanとSlashで共有ヘルパーを使用
 MotionCalculators.Scan = (t) => calculateDiagonalMotion(t, 1);
 MotionCalculators.Slash = (t) => calculateDiagonalMotion(t, -1);
-
-
-// Color Normalization - Returns {min, max} range for each motion type
-// Motions with high peak weights need scaling to show full color gradient
-const getColorNormalizationRange = (motion) => {
-    const ranges = {
-        'Circulation': { min: 1.0, max: 10.0 },
-        'Scan': { min: 1.0, max: 20.0 },
-        'Slash': { min: 1.0, max: 20.0 },
-        'Pulfunte': { min: 1.0, max: 30.0 }
-    };
-
-    // Default range for motions that don't need special scaling
-    return ranges[motion] || { min: 0.3, max: 2.2 };
-};
 
 
 class ReactiveGrid {
     constructor(container, config) {
         this.container = container;
         this.config = config;
-        this.cols = []; // Column-Major Structure
-        this.rows = []; // Row-Major Structure (if orientation === 'row')
+        this.cols = []; // 列優先構造
+        this.rows = []; // 行優先構造 (orientation === 'row'の場合)
         this.time = 0;
 
-        // Instance wrapper
+        // インスタンスラッパー
         this.instanceDiv = document.createElement('div');
         this.instanceDiv.className = 'grid-instance';
         this.container.appendChild(this.instanceDiv);
 
-        // Grid wrapper
+        // グリッドラッパー
         this.gridWrapper = document.createElement('div');
         this.gridWrapper.className = 'grid-wrapper';
         this.instanceDiv.appendChild(this.gridWrapper);
 
-        // Grid Generation
+        // グリッド生成
         if (this.config.orientation === 'row') {
-            // --- Row-Major Generation (Rows stacked vertically) ---
-            this.gridWrapper.style.flexDirection = 'column'; // Stack rows vertically
+            // --- 行優先生成（行を垂直に積み重ね） ---
+            this.gridWrapper.style.flexDirection = 'column'; // 行を垂直に積み重ね
 
             for (let r = 0; r < 5; r++) {
                 let rowDiv = document.createElement('div');
                 rowDiv.className = 'grid-row';
-                // Inline styles for Row container
+                // 行コンテナのインラインスタイル
                 rowDiv.style.display = 'flex';
-                rowDiv.style.flexDirection = 'row'; // Blocks side-by-side
+                rowDiv.style.flexDirection = 'row'; // ブロックを横並び
                 rowDiv.style.width = '100%';
-                rowDiv.style.height = '0'; // Dynamic
+                rowDiv.style.height = '0'; // 動的
                 rowDiv.style.flexGrow = '0';
 
                 this.gridWrapper.appendChild(rowDiv);
@@ -326,7 +275,7 @@ class ReactiveGrid {
                 for (let c = 0; c < 5; c++) {
                     let div = document.createElement('div');
                     div.className = 'char-block';
-                    // Override char-block defaults for row-major
+                    // row-major用にchar-blockのデフォルトを上書き
                     div.style.height = '100%';
                     div.style.width = '0'; // Dynamic
                     rowDiv.appendChild(div);
@@ -345,8 +294,8 @@ class ReactiveGrid {
             }
 
         } else {
-            // --- Column-Major Generation (Default: Cols stacked horizontally) ---
-            // grid-wrapper default is flex-direction: row (from CSS or default)
+            // --- 列優先生成（デフォルト: 列を水平に積み重ね） ---
+            // grid-wrapperのデフォルトはflex-direction: row（CSSまたはデフォルトから）
 
             for (let c = 0; c < 5; c++) {
                 let colDiv = document.createElement('div');
