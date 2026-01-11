@@ -9,15 +9,8 @@ const gaussianWeight = (distance, amplitude, falloff, baseline = 1.0) => {
 // 色の正規化 - 各モーションタイプの{min, max}範囲を返す
 // ピーク重みが高いモーションは、完全な色グラデーションを表示するためにスケーリングが必要
 const getColorNormalizationRange = (motion) => {
-    const ranges = {
-        'Circulation': { min: 1.0, max: 10.0 },
-        'Scan': { min: 1.0, max: 20.0 },
-        'Slash': { min: 1.0, max: 20.0 },
-        'Pulfunte': { min: 1.0, max: 30.0 }
-    };
-
     // 特別なスケーリングが不要なモーションのデフォルト範囲
-    return ranges[motion] || { min: 0.3, max: 2.2 };
+    return CONFIG.COLOR_NORMALIZATION[motion] || { min: CONFIG.COLOR_RANGE.MIN, max: CONFIG.COLOR_RANGE.MAX };
 };
 
 // 対角線モーション用ヘルパー関数（ScanとSlash）
@@ -28,21 +21,21 @@ const calculateDiagonalMotion = (t, direction) => {
     let totalGlobalRowWeight = 0;
     let totalGlobalColWeight = 0;
 
-    let cycleLen = 6;
-    let phase = (t * 1.5) % cycleLen - 0.5;
+    let cycleLen = CONFIG.DIAGONAL.CYCLE_LENGTH;
+    let phase = (t * CONFIG.DIAGONAL.PHASE_SPEED) % cycleLen - CONFIG.DIAGONAL.PHASE_OFFSET;
 
-    for (let r = 0; r < 5; r++) {
+    for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
         let dist = r - phase;
-        let w = gaussianWeight(dist, 4.0, 1.5);
+        let w = gaussianWeight(dist, CONFIG.WEIGHT_AMPLITUDE.PEAK, CONFIG.GAUSSIAN_FALLOFF.SHARP);
         globalRowWeights.push(w);
         totalGlobalRowWeight += w;
     }
 
-    for (let c = 0; c < 5; c++) {
+    for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
         // direction = 1: 同じ位相（左上→右下）、direction = -1: 反転位相（右上→左下）
-        let colPhase = direction === 1 ? phase : (cycleLen - 0.5 - phase);
+        let colPhase = direction === 1 ? phase : (cycleLen - CONFIG.DIAGONAL.PHASE_OFFSET - phase);
         let dist = c - colPhase;
-        let w = gaussianWeight(dist, 4.0, 1.5);
+        let w = gaussianWeight(dist, CONFIG.WEIGHT_AMPLITUDE.PEAK, CONFIG.GAUSSIAN_FALLOFF.SHARP);
         globalColWeights.push(w);
         totalGlobalColWeight += w;
     }

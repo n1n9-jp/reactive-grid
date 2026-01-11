@@ -1,10 +1,7 @@
 let grids = [];
 
 // Tweakpaneで制御されるグローバルパラメータ
-const PARAMS = {
-    scheme: 'Viridis',
-    speed: 0.05
-};
+const PARAMS = CONFIG.DEFAULT_PARAMS;
 
 // グリッド設定 - ラベルとモーションタイプのみを定義
 // 'orientation'プロパティでグリッドレイアウト（列優先 or 行優先）を指定
@@ -29,13 +26,13 @@ const MotionCalculators = {
         let totalGlobalRowWeight = 0;
         let totalGlobalColWeight = 0;
 
-        for (let r = 0; r < 5; r++) {
-            let w = 1.0 + 0.6 * sin(t * 1.5 + r * 0.8);
+        for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+            let w = 1.0 + CONFIG.WEIGHT_AMPLITUDE.STRONG * sin(t * CONFIG.PHASE_MULTIPLIER.SLOW + r * 0.8);
             globalRowWeights.push(w);
             totalGlobalRowWeight += w;
         }
-        for (let c = 0; c < 5; c++) {
-            let w = 1.0 + 0.6 * sin(t * 1.5 + c * 0.8);
+        for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
+            let w = 1.0 + CONFIG.WEIGHT_AMPLITUDE.STRONG * sin(t * CONFIG.PHASE_MULTIPLIER.SLOW + c * 0.8);
             globalColWeights.push(w);
             totalGlobalColWeight += w;
         }
@@ -49,15 +46,15 @@ const MotionCalculators = {
         let totalGlobalRowWeight = 0;
         let totalGlobalColWeight = 0;
 
-        for (let r = 0; r < 5; r++) {
-            let dist = Math.abs(r - 2);
-            let w = 1.0 + 0.6 * sin(t * 2.0 - dist * 1.0);
+        for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+            let dist = Math.abs(r - Math.floor(CONFIG.GRID_SIZE / 2));
+            let w = 1.0 + CONFIG.WEIGHT_AMPLITUDE.STRONG * sin(t * CONFIG.PHASE_MULTIPLIER.NORMAL - dist * 1.0);
             globalRowWeights.push(w);
             totalGlobalRowWeight += w;
         }
-        for (let c = 0; c < 5; c++) {
-            let dist = Math.abs(c - 2);
-            let w = 1.0 + 0.6 * sin(t * 2.0 - dist * 1.0);
+        for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
+            let dist = Math.abs(c - Math.floor(CONFIG.GRID_SIZE / 2));
+            let w = 1.0 + CONFIG.WEIGHT_AMPLITUDE.STRONG * sin(t * CONFIG.PHASE_MULTIPLIER.NORMAL - dist * 1.0);
             globalColWeights.push(w);
             totalGlobalColWeight += w;
         }
@@ -71,13 +68,13 @@ const MotionCalculators = {
         let totalGlobalRowWeight = 0;
         let totalGlobalColWeight = 0;
 
-        for (let r = 0; r < 5; r++) {
-            let w = 1.0 + 0.6 * sin(t * 2.0 - r * 0.8);
+        for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+            let w = 1.0 + CONFIG.WEIGHT_AMPLITUDE.STRONG * sin(t * CONFIG.PHASE_MULTIPLIER.NORMAL - r * 0.8);
             globalRowWeights.push(w);
             totalGlobalRowWeight += w;
         }
-        for (let c = 0; c < 5; c++) {
-            let w = 1.0 + 0.3 * sin(t * 1.5 + c * 0.2);
+        for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
+            let w = 1.0 + CONFIG.WEIGHT_AMPLITUDE.GENTLE * sin(t * CONFIG.PHASE_MULTIPLIER.SLOW + c * 0.2);
             globalColWeights.push(w);
             totalGlobalColWeight += w;
         }
@@ -91,13 +88,13 @@ const MotionCalculators = {
         let totalGlobalRowWeight = 0;
         let totalGlobalColWeight = 0;
 
-        for (let r = 0; r < 5; r++) {
-            let w = 1.0 + 0.3 * sin(t * 1.5 + r * 0.2);
+        for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+            let w = 1.0 + CONFIG.WEIGHT_AMPLITUDE.GENTLE * sin(t * CONFIG.PHASE_MULTIPLIER.SLOW + r * 0.2);
             globalRowWeights.push(w);
             totalGlobalRowWeight += w;
         }
-        for (let c = 0; c < 5; c++) {
-            let w = 1.0 + 0.6 * sin(t * 2.0 - c * 0.8);
+        for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
+            let w = 1.0 + CONFIG.WEIGHT_AMPLITUDE.STRONG * sin(t * CONFIG.PHASE_MULTIPLIER.NORMAL - c * 0.8);
             globalColWeights.push(w);
             totalGlobalColWeight += w;
         }
@@ -112,8 +109,8 @@ const MotionCalculators = {
         let totalGlobalColWeight = 0;
 
         // 列幅は均一/呼吸
-        for (let c = 0; c < 5; c++) {
-            let w = 1.0 + 0.3 * sin(t * 1.5 + c * 0.2);
+        for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
+            let w = 1.0 + CONFIG.WEIGHT_AMPLITUDE.GENTLE * sin(t * CONFIG.PHASE_MULTIPLIER.SLOW + c * 0.2);
             globalColWeights.push(w);
             totalGlobalColWeight += w;
         }
@@ -128,25 +125,25 @@ const MotionCalculators = {
         let totalGlobalColWeight = 0;
 
         // フォーカスポイントが滑らかに軌道を描く
-        let radius = 2.5;
-        let centerX = 2.0;
-        let centerY = 2.0;
-        let orbitSpeed = t * 0.5;
+        let radius = CONFIG.CIRCULATION.RADIUS;
+        let centerX = CONFIG.CIRCULATION.CENTER_X;
+        let centerY = CONFIG.CIRCULATION.CENTER_Y;
+        let orbitSpeed = t * CONFIG.CIRCULATION.ORBIT_SPEED;
         let angle = orbitSpeed - Math.PI * 0.75;
 
         let focusC = centerX + radius * Math.cos(angle);
         let focusR = centerY + radius * Math.sin(angle);
 
         // ガウス重み
-        for (let r = 0; r < 5; r++) {
+        for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
             let dist = r - focusR;
-            let w = gaussianWeight(dist, 4.0, 0.5);
+            let w = gaussianWeight(dist, CONFIG.WEIGHT_AMPLITUDE.PEAK, CONFIG.GAUSSIAN_FALLOFF.NORMAL);
             globalRowWeights.push(w);
             totalGlobalRowWeight += w;
         }
-        for (let c = 0; c < 5; c++) {
+        for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
             let dist = c - focusC;
-            let w = gaussianWeight(dist, 4.0, 0.5);
+            let w = gaussianWeight(dist, CONFIG.WEIGHT_AMPLITUDE.PEAK, CONFIG.GAUSSIAN_FALLOFF.NORMAL);
             globalColWeights.push(w);
             totalGlobalColWeight += w;
         }
@@ -160,7 +157,7 @@ const MotionCalculators = {
         let totalGlobalRowWeight = 0;
         let totalGlobalColWeight = 0;
 
-        let stepDuration = 1.0;
+        let stepDuration = CONFIG.PULFUNTE.STEP_DURATION;
         let step = Math.floor(t * stepDuration);
         let stepProgress = (t * stepDuration) - step;
 
@@ -170,10 +167,10 @@ const MotionCalculators = {
         };
 
         // Current and next focus cells
-        let focusR1 = Math.floor(rnd(step * 123.456) * 5);
-        let focusC1 = Math.floor(rnd(step * 789.012) * 5);
-        let focusR2 = Math.floor(rnd((step + 1) * 123.456) * 5);
-        let focusC2 = Math.floor(rnd((step + 1) * 789.012) * 5);
+        let focusR1 = Math.floor(rnd(step * CONFIG.PULFUNTE.RANDOM_SEED_1) * CONFIG.GRID_SIZE);
+        let focusC1 = Math.floor(rnd(step * CONFIG.PULFUNTE.RANDOM_SEED_2) * CONFIG.GRID_SIZE);
+        let focusR2 = Math.floor(rnd((step + 1) * CONFIG.PULFUNTE.RANDOM_SEED_1) * CONFIG.GRID_SIZE);
+        let focusC2 = Math.floor(rnd((step + 1) * CONFIG.PULFUNTE.RANDOM_SEED_2) * CONFIG.GRID_SIZE);
 
         // Smoothstep interpolation
         let ease = stepProgress * stepProgress * (3 - 2 * stepProgress);
@@ -181,12 +178,12 @@ const MotionCalculators = {
         let focusC = focusC1 + (focusC2 - focusC1) * ease;
 
         // 2D放射状重み
-        for (let r = 0; r < 5; r++) {
-            for (let c = 0; c < 5; c++) {
+        for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+            for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
                 let dr = r - focusR;
                 let dc = c - focusC;
                 let dist = Math.sqrt(dr * dr + dc * dc);
-                let weight = gaussianWeight(dist, 5.0, 0.4);
+                let weight = gaussianWeight(dist, CONFIG.WEIGHT_AMPLITUDE.INTENSE, CONFIG.GAUSSIAN_FALLOFF.GENTLE);
 
                 if (!instance.pulfunteWeights) instance.pulfunteWeights = [];
                 if (!instance.pulfunteWeights[r]) instance.pulfunteWeights[r] = [];
@@ -195,12 +192,12 @@ const MotionCalculators = {
         }
 
         // Extract row and col weights
-        for (let r = 0; r < 5; r++) {
+        for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
             let maxW = Math.max(...instance.pulfunteWeights[r]);
             globalRowWeights.push(maxW);
             totalGlobalRowWeight += maxW;
         }
-        for (let c = 0; c < 5; c++) {
+        for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
             let maxW = Math.max(...instance.pulfunteWeights.map(row => row[c]));
             globalColWeights.push(maxW);
             totalGlobalColWeight += maxW;
@@ -215,13 +212,13 @@ const MotionCalculators = {
         let totalGlobalRowWeight = 0;
         let totalGlobalColWeight = 0;
 
-        for (let r = 0; r < 5; r++) {
-            let w = map(noise(t * 0.5, r * 10), 0, 1, 0.4, 2.0);
+        for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
+            let w = map(noise(t * CONFIG.NOISE.TIME_SPEED, r * CONFIG.NOISE.SPATIAL_OFFSET), 0, 1, CONFIG.NOISE.WEIGHT_MIN, CONFIG.NOISE.WEIGHT_MAX);
             globalRowWeights.push(w);
             totalGlobalRowWeight += w;
         }
-        for (let c = 0; c < 5; c++) {
-            let w = map(noise(t * 0.5, c * 10 + 100), 0, 1, 0.4, 2.0);
+        for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
+            let w = map(noise(t * CONFIG.NOISE.TIME_SPEED, c * CONFIG.NOISE.SPATIAL_OFFSET + 100), 0, 1, CONFIG.NOISE.WEIGHT_MIN, CONFIG.NOISE.WEIGHT_MAX);
             globalColWeights.push(w);
             totalGlobalColWeight += w;
         }
@@ -258,7 +255,7 @@ class ReactiveGrid {
             // --- 行優先生成（行を垂直に積み重ね） ---
             this.gridWrapper.style.flexDirection = 'column'; // 行を垂直に積み重ね
 
-            for (let r = 0; r < 5; r++) {
+            for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
                 let rowDiv = document.createElement('div');
                 rowDiv.className = 'grid-row';
                 // 行コンテナのインラインスタイル
@@ -272,7 +269,7 @@ class ReactiveGrid {
 
                 let rowBlocks = [];
 
-                for (let c = 0; c < 5; c++) {
+                for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
                     let div = document.createElement('div');
                     div.className = 'char-block';
                     // row-major用にchar-blockのデフォルトを上書き
@@ -297,14 +294,14 @@ class ReactiveGrid {
             // --- 列優先生成（デフォルト: 列を水平に積み重ね） ---
             // grid-wrapperのデフォルトはflex-direction: row（CSSまたはデフォルトから）
 
-            for (let c = 0; c < 5; c++) {
+            for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
                 let colDiv = document.createElement('div');
                 colDiv.className = 'grid-col';
                 this.gridWrapper.appendChild(colDiv);
 
                 let colBlocks = [];
 
-                for (let r = 0; r < 5; r++) {
+                for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
                     let div = document.createElement('div');
                     div.className = 'char-block';
                     colDiv.appendChild(div);
@@ -353,7 +350,7 @@ class ReactiveGrid {
             calculator(t, this);
 
         // 2. Apply
-        for (let c = 0; c < 5; c++) {
+        for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
             // Apply Col Width
             let colWPercent = (globalColWeights[c] / totalGlobalColWeight) * 100;
             this.cols[c].div.style.width = `${colWPercent}%`;
@@ -364,12 +361,12 @@ class ReactiveGrid {
 
             if (motion === 'AltTBFlow') {
                 let isOddCol = (c % 2 === 0);
-                for (let r = 0; r < 5; r++) {
+                for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
                     let w;
                     if (isOddCol) { // Top to Bottom
-                        w = 1.0 + 0.6 * sin(t * 2.0 - r * 0.8);
+                        w = 1.0 + CONFIG.WEIGHT_AMPLITUDE.STRONG * sin(t * CONFIG.PHASE_MULTIPLIER.NORMAL - r * 0.8);
                     } else { // Bottom to Top
-                        w = 1.0 + 0.6 * sin(t * 2.0 + r * 0.8);
+                        w = 1.0 + CONFIG.WEIGHT_AMPLITUDE.STRONG * sin(t * CONFIG.PHASE_MULTIPLIER.NORMAL + r * 0.8);
                     }
                     localRowWeights.push(w);
                     localTotalRowWeight += w;
@@ -379,7 +376,7 @@ class ReactiveGrid {
                 localTotalRowWeight = totalGlobalRowWeight;
             }
 
-            for (let r = 0; r < 5; r++) {
+            for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
                 let block = this.cols[c].blocks[r];
                 let rowHPercent = (localRowWeights[r] / localTotalRowWeight) * 100;
                 block.div.style.height = `${rowHPercent}%`;
@@ -416,18 +413,18 @@ class ReactiveGrid {
         // 1. Calculate Global Row Weights (Heights)
         // For AltLRFlow, User requested NO vertical breathing (Fixed visual row height)
         if (motion === 'AltLRFlow') {
-            for (let r = 0; r < 5; r++) {
+            for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
                 let w = 1.0; // Static height
                 globalRowWeights.push(w);
                 totalGlobalRowWeight += w;
             }
         } else {
             // Default uniform if other Row-Majors added later
-            for (let r = 0; r < 5; r++) totalGlobalRowWeight += 1, globalRowWeights.push(1);
+            for (let r = 0; r < CONFIG.GRID_SIZE; r++) totalGlobalRowWeight += 1, globalRowWeights.push(1);
         }
 
         // 2. Apply
-        for (let r = 0; r < 5; r++) {
+        for (let r = 0; r < CONFIG.GRID_SIZE; r++) {
             // Apply Row Height
             let rowHPercent = (globalRowWeights[r] / totalGlobalRowWeight) * 100;
             this.rows[r].div.style.height = `${rowHPercent}%`;
@@ -438,22 +435,22 @@ class ReactiveGrid {
 
             if (motion === 'AltLRFlow') {
                 let isEvenRow = (r % 2 === 0);
-                for (let c = 0; c < 5; c++) {
+                for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
                     let w;
                     if (isEvenRow) { // Left to Right
-                        w = 1.0 + 0.6 * sin(t * 2.0 - c * 0.8);
+                        w = 1.0 + CONFIG.WEIGHT_AMPLITUDE.STRONG * sin(t * CONFIG.PHASE_MULTIPLIER.NORMAL - c * 0.8);
                     } else { // Right to Left
-                        w = 1.0 + 0.6 * sin(t * 2.0 + c * 0.8);
+                        w = 1.0 + CONFIG.WEIGHT_AMPLITUDE.STRONG * sin(t * CONFIG.PHASE_MULTIPLIER.NORMAL + c * 0.8);
                     }
                     localColWeights.push(w);
                     localTotalColWeight += w;
                 }
             } else {
                 // Fallback
-                for (let c = 0; c < 5; c++) localTotalColWeight += 1, localColWeights.push(1);
+                for (let c = 0; c < CONFIG.GRID_SIZE; c++) localTotalColWeight += 1, localColWeights.push(1);
             }
 
-            for (let c = 0; c < 5; c++) {
+            for (let c = 0; c < CONFIG.GRID_SIZE; c++) {
                 let block = this.rows[r].blocks[c];
                 let colWPercent = (localColWeights[c] / localTotalColWeight) * 100;
                 block.div.style.width = `${colWPercent}%`;
