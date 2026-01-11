@@ -21,6 +21,267 @@ const GRID_CONFIGS = [
     { label: 'PULFUNTE', motion: 'Pulfunte' }
 ];
 
+// Motion Calculators - Each function returns { globalRowWeights, globalColWeights, totalGlobalRowWeight, totalGlobalColWeight }
+const MotionCalculators = {
+    Orthogonal: (t) => {
+        const globalRowWeights = [];
+        const globalColWeights = [];
+        let totalGlobalRowWeight = 0;
+        let totalGlobalColWeight = 0;
+
+        for (let r = 0; r < 5; r++) {
+            let w = 1.0 + 0.6 * sin(t * 1.5 + r * 0.8);
+            globalRowWeights.push(w);
+            totalGlobalRowWeight += w;
+        }
+        for (let c = 0; c < 5; c++) {
+            let w = 1.0 + 0.6 * sin(t * 1.5 + c * 0.8);
+            globalColWeights.push(w);
+            totalGlobalColWeight += w;
+        }
+
+        return { globalRowWeights, globalColWeights, totalGlobalRowWeight, totalGlobalColWeight };
+    },
+
+    Polar: (t) => {
+        const globalRowWeights = [];
+        const globalColWeights = [];
+        let totalGlobalRowWeight = 0;
+        let totalGlobalColWeight = 0;
+
+        for (let r = 0; r < 5; r++) {
+            let dist = Math.abs(r - 2);
+            let w = 1.0 + 0.6 * sin(t * 2.0 - dist * 1.0);
+            globalRowWeights.push(w);
+            totalGlobalRowWeight += w;
+        }
+        for (let c = 0; c < 5; c++) {
+            let dist = Math.abs(c - 2);
+            let w = 1.0 + 0.6 * sin(t * 2.0 - dist * 1.0);
+            globalColWeights.push(w);
+            totalGlobalColWeight += w;
+        }
+
+        return { globalRowWeights, globalColWeights, totalGlobalRowWeight, totalGlobalColWeight };
+    },
+
+    'TB Flow': (t) => {
+        const globalRowWeights = [];
+        const globalColWeights = [];
+        let totalGlobalRowWeight = 0;
+        let totalGlobalColWeight = 0;
+
+        for (let r = 0; r < 5; r++) {
+            let w = 1.0 + 0.6 * sin(t * 2.0 - r * 0.8);
+            globalRowWeights.push(w);
+            totalGlobalRowWeight += w;
+        }
+        for (let c = 0; c < 5; c++) {
+            let w = 1.0 + 0.3 * sin(t * 1.5 + c * 0.2);
+            globalColWeights.push(w);
+            totalGlobalColWeight += w;
+        }
+
+        return { globalRowWeights, globalColWeights, totalGlobalRowWeight, totalGlobalColWeight };
+    },
+
+    'LR Flow': (t) => {
+        const globalRowWeights = [];
+        const globalColWeights = [];
+        let totalGlobalRowWeight = 0;
+        let totalGlobalColWeight = 0;
+
+        for (let r = 0; r < 5; r++) {
+            let w = 1.0 + 0.3 * sin(t * 1.5 + r * 0.2);
+            globalRowWeights.push(w);
+            totalGlobalRowWeight += w;
+        }
+        for (let c = 0; c < 5; c++) {
+            let w = 1.0 + 0.6 * sin(t * 2.0 - c * 0.8);
+            globalColWeights.push(w);
+            totalGlobalColWeight += w;
+        }
+
+        return { globalRowWeights, globalColWeights, totalGlobalRowWeight, totalGlobalColWeight };
+    },
+
+    AltTBFlow: (t) => {
+        const globalRowWeights = [];
+        const globalColWeights = [];
+        let totalGlobalRowWeight = 1; // Dummy
+        let totalGlobalColWeight = 0;
+
+        // Col widths are uniform/breathing
+        for (let c = 0; c < 5; c++) {
+            let w = 1.0 + 0.3 * sin(t * 1.5 + c * 0.2);
+            globalColWeights.push(w);
+            totalGlobalColWeight += w;
+        }
+
+        return { globalRowWeights, globalColWeights, totalGlobalRowWeight, totalGlobalColWeight };
+    },
+
+    Circulation: (t) => {
+        const globalRowWeights = [];
+        const globalColWeights = [];
+        let totalGlobalRowWeight = 0;
+        let totalGlobalColWeight = 0;
+
+        // Focus point orbits smoothly
+        let radius = 2.5;
+        let centerX = 2.0;
+        let centerY = 2.0;
+        let orbitSpeed = t * 0.5;
+        let angle = orbitSpeed - Math.PI * 0.75;
+
+        let focusC = centerX + radius * Math.cos(angle);
+        let focusR = centerY + radius * Math.sin(angle);
+
+        // Gaussian weights
+        for (let r = 0; r < 5; r++) {
+            let dist = r - focusR;
+            let w = 1.0 + 4.0 * Math.exp(-dist * dist * 0.5);
+            globalRowWeights.push(w);
+            totalGlobalRowWeight += w;
+        }
+        for (let c = 0; c < 5; c++) {
+            let dist = c - focusC;
+            let w = 1.0 + 4.0 * Math.exp(-dist * dist * 0.5);
+            globalColWeights.push(w);
+            totalGlobalColWeight += w;
+        }
+
+        return { globalRowWeights, globalColWeights, totalGlobalRowWeight, totalGlobalColWeight };
+    },
+
+    Pulfunte: (t, instance) => {
+        const globalRowWeights = [];
+        const globalColWeights = [];
+        let totalGlobalRowWeight = 0;
+        let totalGlobalColWeight = 0;
+
+        let stepDuration = 1.0;
+        let step = Math.floor(t * stepDuration);
+        let stepProgress = (t * stepDuration) - step;
+
+        let rnd = (seed) => {
+            let x = Math.sin(seed) * 10000;
+            return x - Math.floor(x);
+        };
+
+        // Current and next focus cells
+        let focusR1 = Math.floor(rnd(step * 123.456) * 5);
+        let focusC1 = Math.floor(rnd(step * 789.012) * 5);
+        let focusR2 = Math.floor(rnd((step + 1) * 123.456) * 5);
+        let focusC2 = Math.floor(rnd((step + 1) * 789.012) * 5);
+
+        // Smoothstep interpolation
+        let ease = stepProgress * stepProgress * (3 - 2 * stepProgress);
+        let focusR = focusR1 + (focusR2 - focusR1) * ease;
+        let focusC = focusC1 + (focusC2 - focusC1) * ease;
+
+        // 2D radial weights
+        for (let r = 0; r < 5; r++) {
+            for (let c = 0; c < 5; c++) {
+                let dr = r - focusR;
+                let dc = c - focusC;
+                let dist = Math.sqrt(dr * dr + dc * dc);
+                let weight = 1.0 + 5.0 * Math.exp(-dist * dist * 0.4);
+
+                if (!instance.pulfunteWeights) instance.pulfunteWeights = [];
+                if (!instance.pulfunteWeights[r]) instance.pulfunteWeights[r] = [];
+                instance.pulfunteWeights[r][c] = weight;
+            }
+        }
+
+        // Extract row and col weights
+        for (let r = 0; r < 5; r++) {
+            let maxW = Math.max(...instance.pulfunteWeights[r]);
+            globalRowWeights.push(maxW);
+            totalGlobalRowWeight += maxW;
+        }
+        for (let c = 0; c < 5; c++) {
+            let maxW = Math.max(...instance.pulfunteWeights.map(row => row[c]));
+            globalColWeights.push(maxW);
+            totalGlobalColWeight += maxW;
+        }
+
+        return { globalRowWeights, globalColWeights, totalGlobalRowWeight, totalGlobalColWeight };
+    },
+
+    Noise: (t) => {
+        const globalRowWeights = [];
+        const globalColWeights = [];
+        let totalGlobalRowWeight = 0;
+        let totalGlobalColWeight = 0;
+
+        for (let r = 0; r < 5; r++) {
+            let w = map(noise(t * 0.5, r * 10), 0, 1, 0.4, 2.0);
+            globalRowWeights.push(w);
+            totalGlobalRowWeight += w;
+        }
+        for (let c = 0; c < 5; c++) {
+            let w = map(noise(t * 0.5, c * 10 + 100), 0, 1, 0.4, 2.0);
+            globalColWeights.push(w);
+            totalGlobalColWeight += w;
+        }
+
+        return { globalRowWeights, globalColWeights, totalGlobalRowWeight, totalGlobalColWeight };
+    },
+
+    Scan: (t) => {
+        const globalRowWeights = [];
+        const globalColWeights = [];
+        let totalGlobalRowWeight = 0;
+        let totalGlobalColWeight = 0;
+
+        let cycleLen = 6;
+        let phase = (t * 1.5) % cycleLen - 0.5;
+
+        for (let r = 0; r < 5; r++) {
+            let dist = r - phase;
+            let w = 1.0 + 4.0 * Math.exp(-dist * dist * 1.5);
+            globalRowWeights.push(w);
+            totalGlobalRowWeight += w;
+        }
+        for (let c = 0; c < 5; c++) {
+            let dist = c - phase;
+            let w = 1.0 + 4.0 * Math.exp(-dist * dist * 1.5);
+            globalColWeights.push(w);
+            totalGlobalColWeight += w;
+        }
+
+        return { globalRowWeights, globalColWeights, totalGlobalRowWeight, totalGlobalColWeight };
+    },
+
+    Slash: (t) => {
+        const globalRowWeights = [];
+        const globalColWeights = [];
+        let totalGlobalRowWeight = 0;
+        let totalGlobalColWeight = 0;
+
+        let cycleLen = 6;
+        let phase = (t * 1.5) % cycleLen - 0.5;
+
+        for (let r = 0; r < 5; r++) {
+            let dist = r - phase;
+            let w = 1.0 + 4.0 * Math.exp(-dist * dist * 1.5);
+            globalRowWeights.push(w);
+            totalGlobalRowWeight += w;
+        }
+        // Inverted phase for opposite diagonal
+        for (let c = 0; c < 5; c++) {
+            let dist = c - (cycleLen - 0.5 - phase);
+            let w = 1.0 + 4.0 * Math.exp(-dist * dist * 1.5);
+            globalColWeights.push(w);
+            totalGlobalColWeight += w;
+        }
+
+        return { globalRowWeights, globalColWeights, totalGlobalRowWeight, totalGlobalColWeight };
+    }
+};
+
+
 class ReactiveGrid {
     constructor(container, config) {
         this.container = container;
@@ -133,235 +394,10 @@ class ReactiveGrid {
     // --- Column Major Update (Original Logic) ---
     // Orthogonal, Polar, Flows, Noise, etc.
     updateColMajor(t, motion) {
-        let globalRowWeights = [];
-        let globalColWeights = [];
-        let totalGlobalRowWeight = 0;
-        let totalGlobalColWeight = 0;
-
-        // 1. Calculate Standard Weights
-        if (motion === 'Orthogonal') {
-            for (let r = 0; r < 5; r++) {
-                let w = 1.0 + 0.6 * sin(t * 1.5 + r * 0.8);
-                globalRowWeights.push(w);
-                totalGlobalRowWeight += w;
-            }
-            for (let c = 0; c < 5; c++) {
-                let w = 1.0 + 0.6 * sin(t * 1.5 + c * 0.8);
-                globalColWeights.push(w);
-                totalGlobalColWeight += w;
-            }
-        } else if (motion === 'Polar') {
-            for (let r = 0; r < 5; r++) {
-                let dist = Math.abs(r - 2);
-                let w = 1.0 + 0.6 * sin(t * 2.0 - dist * 1.0);
-                globalRowWeights.push(w);
-                totalGlobalRowWeight += w;
-            }
-            for (let c = 0; c < 5; c++) {
-                let dist = Math.abs(c - 2);
-                let w = 1.0 + 0.6 * sin(t * 2.0 - dist * 1.0);
-                globalColWeights.push(w);
-                totalGlobalColWeight += w;
-            }
-        } else if (motion === 'TB Flow') {
-            for (let r = 0; r < 5; r++) {
-                let w = 1.0 + 0.6 * sin(t * 2.0 - r * 0.8);
-                globalRowWeights.push(w);
-                totalGlobalRowWeight += w;
-            }
-            for (let c = 0; c < 5; c++) {
-                let w = 1.0 + 0.3 * sin(t * 1.5 + c * 0.2);
-                globalColWeights.push(w);
-                totalGlobalColWeight += w;
-            }
-        } else if (motion === 'LR Flow') {
-            for (let r = 0; r < 5; r++) {
-                let w = 1.0 + 0.3 * sin(t * 1.5 + r * 0.2);
-                globalRowWeights.push(w);
-                totalGlobalRowWeight += w;
-            }
-            for (let c = 0; c < 5; c++) {
-                let w = 1.0 + 0.6 * sin(t * 2.0 - c * 0.8);
-                globalColWeights.push(w);
-                totalGlobalColWeight += w;
-            }
-        } else if (motion === 'AltTBFlow') {
-            // Col widths are uniform/breathing
-            for (let c = 0; c < 5; c++) {
-                let w = 1.0 + 0.3 * sin(t * 1.5 + c * 0.2);
-                globalColWeights.push(w);
-                totalGlobalColWeight += w;
-            }
-            totalGlobalRowWeight = 1; // Dummy
-        } else if (motion === 'Circulation') {
-            // Circulation: Focus point orbits smoothly, avoiding sharp corners
-            // Center (2, 2), Radius ~2.5 to sweep corners
-            let radius = 2.5;
-            let centerX = 2.0;
-            let centerY = 2.0;
-            let orbitSpeed = t * 0.5; // Adjust speed as needed
-
-            // Orbit logic:
-            // Calculate focus point on a circle/ellipse
-            // Offset phase by -PI/4 to start near Top-Left if needed, but continuous motion doesn't strictly matter start.
-            // Clockwise: 
-            // focusC (x): sin(t)
-            // focusR (y): -cos(t) -> starts top, goes right(if x is sin) ? 
-            // Let's rely on sin/cos standard circle. 
-            // To go TL -> TR -> BR -> BL:
-            // Top (y min), Left(x min) -> Top(y min), Right(x max) 
-            // This is top-edge movement.
-            // Circular: 
-            // Angle -PI/2 (top) -> 0 (right) -> PI/2 (bottom) -> PI (left) -> ...
-            // Y needs to be center + r * sin(angle). (sin(-PI/2) = -1 -> Top)
-            // X needs to be center + r * cos(angle). (cos(-PI/2) = 0 -> Center)
-
-            // We want clockwise starting TL (-x, -y).
-            // angel -3PI/4.
-            // x = cos, y = sin.
-
-            let angle = orbitSpeed - Math.PI * 0.75;
-
-            let focusC = centerX + radius * Math.cos(angle);
-            let focusR = centerY + radius * Math.sin(angle);
-
-            // Apply weights based on distance to Focus Point
-            // Use Gaussian (bell curve) for smooth ease-in/ease-out at the peak
-            // exp(-dist^2) has 0 derivative at peak, avoiding the sharp 'bounce' of exp(-abs(dist))
-            for (let r = 0; r < 5; r++) {
-                let dist = r - focusR; // Signed distance
-                let w = 1.0 + 4.0 * Math.exp(-dist * dist * 0.5); // Gaussian
-                globalRowWeights.push(w);
-                totalGlobalRowWeight += w;
-            }
-            for (let c = 0; c < 5; c++) {
-                let dist = c - focusC;
-                let w = 1.0 + 4.0 * Math.exp(-dist * dist * 0.5);
-                globalColWeights.push(w);
-                totalGlobalColWeight += w;
-            }
-        } else if (motion === 'Pulfunte') {
-            // Pulfunte: Random focus cell that changes at regular intervals with smooth transitions
-
-            let stepDuration = 1.0; // Steps per unit time (reduced for gentler transitions)
-            let step = Math.floor(t * stepDuration);
-            let stepProgress = (t * stepDuration) - step; // 0.0 to 1.0 within each step
-
-            // Deterministic random function based on step
-            let rnd = (seed) => {
-                let x = Math.sin(seed) * 10000;
-                return x - Math.floor(x);
-            };
-
-            // Current focus cell
-            let focusR1 = Math.floor(rnd(step * 123.456) * 5);
-            let focusC1 = Math.floor(rnd(step * 789.012) * 5);
-
-            // Next focus cell (for interpolation)
-            let focusR2 = Math.floor(rnd((step + 1) * 123.456) * 5);
-            let focusC2 = Math.floor(rnd((step + 1) * 789.012) * 5);
-
-            // Interpolate between current and next focus using easing
-            // Use smoothstep for ease-in-out effect
-            let ease = stepProgress * stepProgress * (3 - 2 * stepProgress); // smoothstep
-            let focusR = focusR1 + (focusR2 - focusR1) * ease;
-            let focusC = focusC1 + (focusC2 - focusC1) * ease;
-
-            // Apply radial weights based on 2D distance from focus
-            for (let r = 0; r < 5; r++) {
-                for (let c = 0; c < 5; c++) {
-                    // Calculate 2D Euclidean distance
-                    let dr = r - focusR;
-                    let dc = c - focusC;
-                    let dist = Math.sqrt(dr * dr + dc * dc);
-
-                    // Gaussian falloff from focus
-                    let weight = 1.0 + 5.0 * Math.exp(-dist * dist * 0.4);
-
-                    // Store in a temporary 2D array
-                    if (!this.pulfunteWeights) this.pulfunteWeights = [];
-                    if (!this.pulfunteWeights[r]) this.pulfunteWeights[r] = [];
-                    this.pulfunteWeights[r][c] = weight;
-                }
-            }
-
-            // Extract row and col weights from 2D array
-            for (let r = 0; r < 5; r++) {
-                let maxW = Math.max(...this.pulfunteWeights[r]);
-                globalRowWeights.push(maxW);
-                totalGlobalRowWeight += maxW;
-            }
-            for (let c = 0; c < 5; c++) {
-                let maxW = Math.max(...this.pulfunteWeights.map(row => row[c]));
-                globalColWeights.push(maxW);
-                totalGlobalColWeight += maxW;
-            }
-        } else if (motion === 'Noise') {
-            for (let r = 0; r < 5; r++) {
-                let w = map(noise(t * 0.5, r * 10), 0, 1, 0.4, 2.0);
-                globalRowWeights.push(w);
-                totalGlobalRowWeight += w;
-            }
-            for (let c = 0; c < 5; c++) {
-                let w = map(noise(t * 0.5, c * 10 + 100), 0, 1, 0.4, 2.0);
-                globalColWeights.push(w);
-                totalGlobalColWeight += w;
-            }
-        } else if (motion === 'Scan') {
-            // Scan / Beam: Diagonal wave from Top-Left to Bottom-Right
-            // Synchronize Row and Col phases so the 'intersection' (high weight) moves diagonally (0,0) -> (4,4)
-
-            // Cycle roughly -1 to 5 to allow fully entering and fully leaving
-            let cycleLen = 6;
-            let phase = (t * 1.5) % cycleLen - 0.5;
-
-            for (let r = 0; r < 5; r++) {
-                let dist = r - phase;
-                // Gaussian peak near the phase
-                let w = 1.0 + 4.0 * Math.exp(-dist * dist * 1.5);
-                globalRowWeights.push(w);
-                totalGlobalRowWeight += w;
-            }
-            // Same phase for Cols = Diagonal movement
-            for (let c = 0; c < 5; c++) {
-                let dist = c - phase;
-                let w = 1.0 + 4.0 * Math.exp(-dist * dist * 1.5);
-                globalColWeights.push(w);
-                totalGlobalColWeight += w;
-            }
-        } else if (motion === 'Slash') {
-            // Slash: Diagonal wave from Top-Right to Bottom-Left (reverse of Scan)
-            // Row phase moves forward (0->4), Col phase moves backward (4->0)
-
-            let cycleLen = 6;
-            let phase = (t * 1.5) % cycleLen - 0.5;
-
-            for (let r = 0; r < 5; r++) {
-                let dist = r - phase;
-                let w = 1.0 + 4.0 * Math.exp(-dist * dist * 1.5);
-                globalRowWeights.push(w);
-                totalGlobalRowWeight += w;
-            }
-            // Inverted phase for Cols = Opposite diagonal (TR->BL)
-            for (let c = 0; c < 5; c++) {
-                let dist = c - (cycleLen - 0.5 - phase); // Reverse direction
-                let w = 1.0 + 4.0 * Math.exp(-dist * dist * 1.5);
-                globalColWeights.push(w);
-                totalGlobalColWeight += w;
-            }
-        } else {
-            // Fallback
-            for (let r = 0; r < 5; r++) {
-                let w = 1.0 + 0.6 * sin(t * 0.7 + r * 1.2);
-                globalRowWeights.push(w);
-                totalGlobalRowWeight += w;
-            }
-            for (let c = 0; c < 5; c++) {
-                let w = 1.0 + 0.6 * sin(t * 1.1 + c * 0.8);
-                globalColWeights.push(w);
-                totalGlobalColWeight += w;
-            }
-        }
+        // Use MotionCalculators to get weights
+        const calculator = MotionCalculators[motion] || MotionCalculators.Orthogonal;
+        const { globalRowWeights, globalColWeights, totalGlobalRowWeight, totalGlobalColWeight } =
+            calculator(t, this);
 
         // 2. Apply
         for (let c = 0; c < 5; c++) {
