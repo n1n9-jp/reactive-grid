@@ -6,6 +6,12 @@ const PARAMS = {
     speed: 0.05
 };
 
+// Utility function for Gaussian weight calculation
+// Used by Circulation, Pulfunte, and diagonal motions (Scan/Slash)
+const gaussianWeight = (distance, amplitude, falloff, baseline = 1.0) => {
+    return baseline + amplitude * Math.exp(-distance * distance * falloff);
+};
+
 // Configs now only define label and motion type
 // Added 'orientation' property for grid layout (col-major or row-major)
 const GRID_CONFIGS = [
@@ -140,13 +146,13 @@ const MotionCalculators = {
         // Gaussian weights
         for (let r = 0; r < 5; r++) {
             let dist = r - focusR;
-            let w = 1.0 + 4.0 * Math.exp(-dist * dist * 0.5);
+            let w = gaussianWeight(dist, 4.0, 0.5);
             globalRowWeights.push(w);
             totalGlobalRowWeight += w;
         }
         for (let c = 0; c < 5; c++) {
             let dist = c - focusC;
-            let w = 1.0 + 4.0 * Math.exp(-dist * dist * 0.5);
+            let w = gaussianWeight(dist, 4.0, 0.5);
             globalColWeights.push(w);
             totalGlobalColWeight += w;
         }
@@ -186,7 +192,7 @@ const MotionCalculators = {
                 let dr = r - focusR;
                 let dc = c - focusC;
                 let dist = Math.sqrt(dr * dr + dc * dc);
-                let weight = 1.0 + 5.0 * Math.exp(-dist * dist * 0.4);
+                let weight = gaussianWeight(dist, 5.0, 0.4);
 
                 if (!instance.pulfunteWeights) instance.pulfunteWeights = [];
                 if (!instance.pulfunteWeights[r]) instance.pulfunteWeights[r] = [];
@@ -227,58 +233,56 @@ const MotionCalculators = {
         }
 
         return { globalRowWeights, globalColWeights, totalGlobalRowWeight, totalGlobalColWeight };
-    },
-
-    Scan: (t) => {
-        const globalRowWeights = [];
-        const globalColWeights = [];
-        let totalGlobalRowWeight = 0;
-        let totalGlobalColWeight = 0;
-
-        let cycleLen = 6;
-        let phase = (t * 1.5) % cycleLen - 0.5;
-
-        for (let r = 0; r < 5; r++) {
-            let dist = r - phase;
-            let w = 1.0 + 4.0 * Math.exp(-dist * dist * 1.5);
-            globalRowWeights.push(w);
-            totalGlobalRowWeight += w;
-        }
-        for (let c = 0; c < 5; c++) {
-            let dist = c - phase;
-            let w = 1.0 + 4.0 * Math.exp(-dist * dist * 1.5);
-            globalColWeights.push(w);
-            totalGlobalColWeight += w;
-        }
-
-        return { globalRowWeights, globalColWeights, totalGlobalRowWeight, totalGlobalColWeight };
-    },
-
-    Slash: (t) => {
-        const globalRowWeights = [];
-        const globalColWeights = [];
-        let totalGlobalRowWeight = 0;
-        let totalGlobalColWeight = 0;
-
-        let cycleLen = 6;
-        let phase = (t * 1.5) % cycleLen - 0.5;
-
-        for (let r = 0; r < 5; r++) {
-            let dist = r - phase;
-            let w = 1.0 + 4.0 * Math.exp(-dist * dist * 1.5);
-            globalRowWeights.push(w);
-            totalGlobalRowWeight += w;
-        }
-        // Inverted phase for opposite diagonal
-        for (let c = 0; c < 5; c++) {
-            let dist = c - (cycleLen - 0.5 - phase);
-            let w = 1.0 + 4.0 * Math.exp(-dist * dist * 1.5);
-            globalColWeights.push(w);
-            totalGlobalColWeight += w;
-        }
-
-        return { globalRowWeights, globalColWeights, totalGlobalRowWeight, totalGlobalColWeight };
     }
+};
+
+// Helper function for diagonal motions (Scan and Slash)
+// direction: 1 for TL→BR (Scan), -1 for TR→BL (Slash)
+const calculateDiagonalMotion = (t, direction) => {
+    const globalRowWeights = [];
+    const globalColWeights = [];
+    let totalGlobalRowWeight = 0;
+    let totalGlobalColWeight = 0;
+
+    let cycleLen = 6;
+    let phase = (t * 1.5) % cycleLen - 0.5;
+
+    for (let r = 0; r < 5; r++) {
+        let dist = r - phase;
+        let w = gaussianWeight(dist, 4.0, 1.5);
+        globalRowWeights.push(w);
+        totalGlobalRowWeight += w;
+    }
+
+    for (let c = 0; c < 5; c++) {
+        // direction = 1: same phase (TL→BR), direction = -1: inverted phase (TR→BL)
+        let colPhase = direction === 1 ? phase : (cycleLen - 0.5 - phase);
+        let dist = c - colPhase;
+        let w = gaussianWeight(dist, 4.0, 1.5);
+        globalColWeights.push(w);
+        totalGlobalColWeight += w;
+    }
+
+    return { globalRowWeights, globalColWeights, totalGlobalRowWeight, totalGlobalColWeight };
+};
+
+// Update Scan and Slash to use the shared helper
+MotionCalculators.Scan = (t) => calculateDiagonalMotion(t, 1);
+MotionCalculators.Slash = (t) => calculateDiagonalMotion(t, -1);
+
+
+// Color Normalization - Returns {min, max} range for each motion type
+// Motions with high peak weights need scaling to show full color gradient
+const getColorNormalizationRange = (motion) => {
+    const ranges = {
+        'Circulation': { min: 1.0, max: 10.0 },
+        'Scan': { min: 1.0, max: 20.0 },
+        'Slash': { min: 1.0, max: 20.0 },
+        'Pulfunte': { min: 1.0, max: 30.0 }
+    };
+
+    // Default range for motions that don't need special scaling
+    return ranges[motion] || { min: 0.3, max: 2.2 };
 };
 
 
@@ -434,20 +438,14 @@ class ReactiveGrid {
                 // Color
                 let relativeArea = localRowWeights[r] * globalColWeights[c];
 
-                // Circulation specific: Revert to standard colors (remove Mondrian override if any remains)
                 // Normalize border
                 block.div.style.border = '1px solid #000';
 
-                // Adjust relativeArea for Circulation, Scan, Slash, and Pulfunte to fit color map
-                // These motions have very high peak weights, so we scale them down to standard range to see gradient.
-                if (motion === 'Circulation') {
-                    relativeArea = map(relativeArea, 1.0, 10.0, 0.3, 2.2);
-                } else if (motion === 'Scan' || motion === 'Slash') {
-                    // Scan and Slash can reach ~25 at peak, map to full color range
-                    relativeArea = map(relativeArea, 1.0, 20.0, 0.3, 2.2);
-                } else if (motion === 'Pulfunte') {
-                    // Pulfunte can reach ~36 at peak (6*6), map to full color range
-                    relativeArea = map(relativeArea, 1.0, 30.0, 0.3, 2.2);
+                // Apply color normalization based on motion type
+                const range = getColorNormalizationRange(motion);
+                if (range.min !== 0.3 || range.max !== 2.2) {
+                    // Motion needs special scaling
+                    relativeArea = map(relativeArea, range.min, range.max, 0.3, 2.2);
                 }
 
                 // Standard D3 Scheme Color
